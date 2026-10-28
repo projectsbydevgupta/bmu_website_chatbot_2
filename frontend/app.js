@@ -1,4 +1,12 @@
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = window.location.origin;
+
+// Auto-point Arize Phoenix button to current server host on port 6006
+document.addEventListener("DOMContentLoaded", () => {
+  const phoenixLink = document.querySelector(".eval-nav-btn.phoenix-btn");
+  if (phoenixLink && window.location.hostname) {
+    phoenixLink.href = `${window.location.protocol}//${window.location.hostname}:6006`;
+  }
+});
 
 const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");

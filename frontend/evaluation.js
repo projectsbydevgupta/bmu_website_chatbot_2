@@ -11,9 +11,17 @@ let radarChartInstance = null;
 let latencyChartInstance = null;
 let guardrailChartInstance = null;
 
-const API_BASE = window.location.origin.includes("127.0.0.1:8000") || window.location.origin.includes("localhost:8000")
-  ? ""
-  : "http://127.0.0.1:8000";
+const API_BASE = "";
+
+// Auto-point Arize Phoenix button to current server host on port 6006
+document.addEventListener("DOMContentLoaded", () => {
+  const phoenixLinks = document.querySelectorAll("a[href*='6006']");
+  phoenixLinks.forEach(link => {
+    if (window.location.hostname) {
+      link.href = `${window.location.protocol}//${window.location.hostname}:6006`;
+    }
+  });
+});
 
 async function loadBenchmarkData() {
   try {

@@ -1,0 +1,39 @@
+name: Keep-Alive 5-Minute Health Ping
+
+on:
+  schedule:
+    # Runs every 5 minutes 24/7 to keep free cloud servers (e.g. Render/EC2) active
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping-health:
+    name: 💓 Server Heartbeat Ping
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: 🌐 Ping Server Health Endpoint
+        env:
+          SERVER_URL: ${{ secrets.SERVER_URL }}
+        run: |
+          TARGET_URL="${SERVER_URL:-https://bmu-chatbot.onrender.com}"
+          HEALTH_ENDPOINT="${TARGET_URL%/}/health"
+          
+          echo "================================================================="
+          echo "  BMU Server Keep-Alive Cron - Heartbeat Ping                    "
+          echo "  Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')                  "
+          echo "  Target:    $HEALTH_ENDPOINT                                    "
+          echo "================================================================="
+          
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$HEALTH_ENDPOINT" || echo "FAILED")
+          
+          if [ "$HTTP_STATUS" == "200" ]; then
+            echo "✅ Heartbeat Success! Server is active (HTTP 200 OK)."
+          else
+            echo "⚠️ Heartbeat Response: HTTP $HTTP_STATUS"
+            # Ping root page as secondary fallback
+            FALLBACK_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$TARGET_URL" || echo "FAILED")
+            echo "Fallback Root Ping: HTTP $FALLBACK_STATUS"
+          fi
+

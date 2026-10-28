@@ -12,9 +12,31 @@ echo.
 :: Navigate to the project directory
 cd /d "%~dp0"
 
+:: Auto-detect proper Python interpreter (prioritizing Python 3.10 with installed packages)
+set "PYTHON_CMD="
+py -c "import chromadb" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    set "PYTHON_CMD=py"
+    set "PIP_CMD=py -m pip"
+) else (
+    python -c "import chromadb" >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        set "PYTHON_CMD=python"
+        set "PIP_CMD=python -m pip"
+    ) else (
+        if exist "%LOCALAPPDATA%\Programs\Python\Python310\python.exe" (
+            set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python310\python.exe"
+            set "PIP_CMD=%LOCALAPPDATA%\Programs\Python\Python310\python.exe -m pip"
+        ) else (
+            set "PYTHON_CMD=python"
+            set "PIP_CMD=pip"
+        )
+    )
+)
+
 :: Install dependencies
-echo [1/3] Installing dependencies...
-pip install -r requirements.txt --quiet 2>nul
+echo [1/3] Checking and installing dependencies...
+%PIP_CMD% install -r requirements.txt --quiet 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Failed to install dependencies. Please check your Python installation.
     pause
@@ -31,19 +53,19 @@ timeout /t 2 /nobreak >nul
 
 :: Start Arize Phoenix Tracing Server on port 6006
 echo       Starting Phoenix Observability Server on port 6006...
-start "BMU-Phoenix-Tracing" /min cmd /c "python phoenix_service.py"
+start "BMU-Phoenix-Tracing" /min cmd /c "%PYTHON_CMD% phoenix_service.py"
 
 :: Start the Retrieval Microservice on port 8001
 echo       Starting Retrieval Microservice on port 8001...
-start "BMU-Retrieval-Microservice" /min cmd /c "python retrieval_service.py"
+start "BMU-Retrieval-Microservice" /min cmd /c "%PYTHON_CMD% retrieval_service.py"
 
 :: Start the Ingestion Microservice on port 8002
 echo       Starting Ingestion Microservice on port 8002...
-start "BMU-Ingestion-Microservice" /min cmd /c "python ingestion_service.py"
+start "BMU-Ingestion-Microservice" /min cmd /c "%PYTHON_CMD% ingestion_service.py"
 
 :: Start the FastAPI backend server on port 8000
 echo       Starting Backend Orchestrator on port 8000...
-start "BMU-Backend" /min cmd /c "python semantic.py"
+start "BMU-Backend" /min cmd /c "%PYTHON_CMD% semantic.py"
 
 :: Wait for servers to boot up
 echo       Waiting for microservices to initialize...

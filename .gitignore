@@ -85,6 +85,7 @@ Desktop.ini
 *.seed
 *.out
 *.err
+.agents/
 
 # SQLite databases
 *.sqlite3

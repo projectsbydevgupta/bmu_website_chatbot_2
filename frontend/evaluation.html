@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BMU Evaluation Observatory | 100-Question Benchmark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="./evaluation.css?v=1.0" />
+  </head>
+  <body>
+    <div class="observatory-grid-bg"></div>
+
+    <header class="topbar">
+      <div class="brand-group">
+        <a href="index.html" class="back-link" title="Return to Chat Assistant">← Chatbot</a>
+        <div class="brand-badge">BMU-OBS</div>
+        <div class="brand-titles">
+          <h1>BMU Benchmark Observatory</h1>
+          <p class="subtitle">Dual-Stream Neural Telemetry: Cloud LLM (Groq) vs Local LLM (Ollama)</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="status-indicator-group">
+          <div class="status-pill cloud-status" title="Groq Cloud Inference (openai/gpt-oss-120b)">
+            <span class="pulsing-dot cyan"></span>
+            <span class="pill-label">Cloud: Groq (GPT-OSS)</span>
+          </div>
+          <div class="status-pill local-status" title="Local Ollama Inference (llama3.2:3b)">
+            <span class="solid-dot violet"></span>
+            <span class="pill-label">Local: Ollama (Llama 3.2 3B)</span>
+          </div>
+        </div>
+
+        <a href="http://localhost:6006" target="_blank" class="btn btn-secondary" style="border-color: rgba(168, 85, 247, 0.4); color: #c084fc; text-decoration: none;" title="Open Arize Phoenix Tracing & LLM Observability UI">
+          <span class="btn-icon">🔭</span> Phoenix Traces
+        </a>
+        <button id="exportCsvBtn" class="btn btn-secondary" title="Export all 100 question evaluations as CSV">
+          <span class="btn-icon">📥</span> Export CSV
+        </button>
+        <button id="exportJsonBtn" class="btn btn-secondary" title="Export full evaluation payload as JSON">
+          <span class="btn-icon">📥</span> Export JSON
+        </button>
+      </div>
+    </header>
+
+    <main class="dashboard-container">
+      <!-- Executive KPI Strip -->
+      <section class="kpi-grid">
+        <div class="kpi-card" id="kpiScore">
+          <div class="kpi-header">
+            <span class="kpi-label">COMPOSITE RAGAS SCORE</span>
+            <span class="kpi-badge pass">Verified</span>
+          </div>
+          <div class="kpi-comparisons">
+            <div class="kpi-col cloud">
+              <span class="kpi-value cyan" id="kpiGroqScore">--</span>
+              <span class="kpi-meta">Cloud (Groq)</span>
+            </div>
+            <div class="kpi-divider">vs</div>
+            <div class="kpi-col local">
+              <span class="kpi-value violet" id="kpiLocalScore">--</span>
+              <span class="kpi-meta">Local (Ollama)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpiRelevance">
+          <div class="kpi-header">
+            <span class="kpi-label">ANSWER RELEVANCE</span>
+            <span class="kpi-badge">0-5 Scale</span>
+          </div>
+          <div class="kpi-comparisons">
+            <div class="kpi-col cloud">
+              <span class="kpi-value cyan" id="kpiGroqRelevance">--</span>
+              <span class="kpi-meta">Cloud</span>
+            </div>
+            <div class="kpi-divider">vs</div>
+            <div class="kpi-col local">
+              <span class="kpi-value violet" id="kpiLocalRelevance">--</span>
+              <span class="kpi-meta">Local</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpiFaithfulness">
+          <div class="kpi-header">
+            <span class="kpi-label">CONTEXT FAITHFULNESS</span>
+            <span class="kpi-badge">Grounding</span>
+          </div>
+          <div class="kpi-comparisons">
+            <div class="kpi-col cloud">
+              <span class="kpi-value cyan" id="kpiGroqFaithfulness">--</span>
+              <span class="kpi-meta">Cloud</span>
+            </div>
+            <div class="kpi-divider">vs</div>
+            <div class="kpi-col local">
+              <span class="kpi-value violet" id="kpiLocalFaithfulness">--</span>
+              <span class="kpi-meta">Local</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpiGuardrail">
+          <div class="kpi-header">
+            <span class="kpi-label">GUARDRAIL ACCURACY</span>
+            <span class="kpi-badge shield">JEV Safe</span>
+          </div>
+          <div class="kpi-comparisons">
+            <div class="kpi-col cloud">
+              <span class="kpi-value emerald" id="kpiGroqGuardrail">--</span>
+              <span class="kpi-meta">Cloud</span>
+            </div>
+            <div class="kpi-divider">vs</div>
+            <div class="kpi-col local">
+              <span class="kpi-value emerald" id="kpiLocalGuardrail">--</span>
+              <span class="kpi-meta">Local</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-card" id="kpiLatency">
+          <div class="kpi-header">
+            <span class="kpi-label">MEDIAN LATENCY</span>
+            <span class="kpi-badge latency">P50 / P95</span>
+          </div>
+          <div class="kpi-comparisons">
+            <div class="kpi-col cloud">
+              <span class="kpi-value cyan" id="kpiGroqLatency">--</span>
+              <span class="kpi-meta">P95: <span id="kpiGroqP95">--</span></span>
+            </div>
+            <div class="kpi-divider">vs</div>
+            <div class="kpi-col local">
+              <span class="kpi-value violet" id="kpiLocalLatency">--</span>
+              <span class="kpi-meta">P95: <span id="kpiLocalP95">--</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Charts Matrix Section -->
+      <section class="charts-section">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2>RAGAS Quality Dimensions (0-5)</h2>
+            <span class="chart-subtitle">Relevance, Faithfulness, Completeness, Conciseness, Correctness</span>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="ragasRadarChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2>Inference Latency Profile (Milliseconds)</h2>
+            <span class="chart-subtitle">Min, Median, Mean, and P95 Response Times</span>
+          </div>
+          <div class="chart-canvas-wrap">
+            <canvas id="latencyBarChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card full-width">
+          <div class="chart-header">
+            <h2>Security & Safety Guardrail Matrix (100 Benchmark Queries)</h2>
+            <span class="chart-subtitle">Precision on In-Scope Academic, Out-of-Scope Inquiries & Adversarial Attacks</span>
+          </div>
+          <div class="chart-canvas-wrap guardrail-chart-wrap">
+            <canvas id="guardrailBarChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Category Breakdown Table -->
+      <section class="section-card">
+        <div class="section-header">
+          <h2>Category Breakdown (20 Specialized Domains)</h2>
+          <span class="section-badge">100 Benchmark Cases</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="categoryTable">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Questions</th>
+                <th>Cloud (Groq) Score</th>
+                <th>Local (Ollama) Score</th>
+                <th>Score Delta</th>
+                <th>Top Performance Note</th>
+              </tr>
+            </thead>
+            <tbody id="categoryTableBody">
+              <tr><td colspan="6" class="loading-cell">Loading benchmark telemetry...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Question Explorer & Drilldown Section -->
+      <section class="section-card">
+        <div class="section-header flex-header">
+          <div>
+            <h2>Question-Level Benchmark Explorer</h2>
+            <span class="section-subtitle">Click any row to inspect ground truth, multi-agent response diffs, and citations.</span>
+          </div>
+          <div class="filters-wrap">
+            <input
+              type="text"
+              id="querySearchInput"
+              class="search-input"
+              placeholder="Search question text or keywords..."
+            />
+            <select id="categoryFilter" class="filter-select">
+              <option value="ALL">All Categories (20)</option>
+            </select>
+            <select id="difficultyFilter" class="filter-select">
+              <option value="ALL">All Difficulties</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+              <option value="out_of_scope">Out of Scope</option>
+              <option value="adversarial">Adversarial</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table drilldown-table" id="questionsTable">
+            <thead>
+              <tr>
+                <th style="width: 50px;">ID</th>
+                <th style="width: 180px;">Category</th>
+                <th style="width: 100px;">Difficulty</th>
+                <th>Query</th>
+                <th style="width: 110px;">Cloud Score</th>
+                <th style="width: 110px;">Local Score</th>
+                <th style="width: 110px;">Cloud Latency</th>
+                <th style="width: 110px;">Local Latency</th>
+                <th style="width: 90px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="questionsTableBody">
+              <tr><td colspan="9" class="loading-cell">Loading benchmark queries...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal Drawer for Question Drilldown -->
+    <div id="drilldownModal" class="modal-backdrop hidden">
+      <div class="modal-drawer">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <span class="modal-tag" id="modalTag">Q1 | Category</span>
+            <h3 id="modalQuery">Question Text</h3>
+          </div>
+          <button id="modalCloseBtn" class="modal-close" aria-label="Close details">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="modal-gt-card">
+            <h4>Verified Reference Ground Truth</h4>
+            <p id="modalGroundTruth">Reference answer...</p>
+          </div>
+
+          <div class="modal-comparison-grid">
+            <!-- Groq Response Box -->
+            <div class="model-resp-box cloud-box">
+              <div class="resp-header">
+                <span class="resp-title cyan">☁️ Cloud LLM (Groq)</span>
+                <span class="resp-latency" id="modalGroqLatency">-- ms</span>
+              </div>
+              <div class="resp-metrics-strip" id="modalGroqMetrics">
+                <!-- Badges populated by JS -->
+              </div>
+              <div class="resp-content" id="modalGroqAnswer">
+                No response recorded.
+              </div>
+            </div>
+
+            <!-- Local LLM Response Box -->
+            <div class="model-resp-box local-box">
+              <div class="resp-header">
+                <span class="resp-title violet">💻 Local LLM (Ollama)</span>
+                <span class="resp-latency" id="modalLocalLatency">-- ms</span>
+              </div>
+              <div class="resp-metrics-strip" id="modalLocalMetrics">
+                <!-- Badges populated by JS -->
+              </div>
+              <div class="resp-content" id="modalLocalAnswer">
+                No response recorded.
+              </div>
+            </div>
+          </div>
+
+          <!-- Retrieved Citations & Trace -->
+          <div class="modal-sources-card">
+            <h4>Knowledge Base Citations & Retrieval Sources</h4>
+            <div id="modalSourcesList" class="sources-list">None</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./evaluation.js?v=1.0"></script>
+  </body>
+</html>

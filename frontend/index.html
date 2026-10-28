@@ -23,7 +23,54 @@
           <p class="brand-subtitle">Chat Assistant</p>
         </div>
       </div>
-      <p class="topbar-note">Reliable, structured academic guidance</p>
+
+      <div class="control-cluster">
+        <!-- LLM Selector Toggle -->
+        <div class="control-item" title="Switch between Cloud Groq and Local Ollama LLM">
+          <span class="control-label">LLM Provider</span>
+          <div class="segmented-control" id="llmToggleGroup" role="radiogroup" aria-label="LLM Provider Selection">
+            <button
+              type="button"
+              id="llmCloudBtn"
+              class="seg-btn active"
+              data-provider="groq"
+              role="radio"
+              aria-checked="true"
+            >
+              <span class="seg-icon">☁️</span> Cloud (Groq)
+            </button>
+            <button
+              type="button"
+              id="llmLocalBtn"
+              class="seg-btn"
+              data-provider="local"
+              role="radio"
+              aria-checked="false"
+            >
+              <span class="seg-icon">💻</span> Local LLM
+            </button>
+          </div>
+        </div>
+
+        <!-- Guardrails Toggle Switch -->
+        <div class="control-item" title="Toggle JEV security & factual grounding guardrails">
+          <span class="control-label">JEV Guardrails</span>
+          <div class="switch-wrap">
+            <label class="toggle-switch" for="guardrailsToggle" aria-label="Toggle Guardrails">
+              <input type="checkbox" id="guardrailsToggle" checked />
+              <span class="slider"></span>
+            </label>
+            <span class="switch-status-text active" id="guardrailsStatusText">ON</span>
+          </div>
+        </div>
+
+        <a href="evaluation.html" class="eval-nav-btn" title="Open 100-Question Model Evaluation Observatory">
+          📊 Benchmark Observatory
+        </a>
+        <a href="http://localhost:6006" target="_blank" class="eval-nav-btn phoenix-btn" title="Open Arize Phoenix Tracing & Observability UI">
+          🔭 Arize Phoenix
+        </a>
+      </div>
     </header>
 
     <main class="main-layout">

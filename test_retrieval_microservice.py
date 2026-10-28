@@ -8,7 +8,6 @@ Tests:
 4. Full integration with backend /ask endpoint (verifying all 3 agents + microservice in trace)
 """
 
-import json
 import sys
 import requests
 

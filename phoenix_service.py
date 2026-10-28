@@ -13,7 +13,7 @@ os.environ["PYTHONUTF8"] = "1"
 if "PHOENIX_PORT" not in os.environ:
     os.environ["PHOENIX_PORT"] = "6006"
 if "PHOENIX_HOST" not in os.environ:
-    os.environ["PHOENIX_HOST"] = "127.0.0.1"
+    os.environ["PHOENIX_HOST"] = "0.0.0.0"
 
 if __name__ == "__main__":
     print(f"Starting Arize Phoenix Server on http://{os.environ['PHOENIX_HOST']}:{os.environ['PHOENIX_PORT']}...")

@@ -75,10 +75,145 @@ body {
   color: var(--muted);
 }
 
-.topbar-note {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #4a4a4a;
+/* =========================================
+   Topbar Controls (LLM & Guardrails Toggles)
+   ========================================= */
+.control-cluster {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.control-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.control-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+/* Segmented Control (Cloud vs Local LLM) */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.seg-btn {
+  border: none;
+  background: transparent;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.seg-btn:hover:not(.active) {
+  color: var(--primary);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.seg-btn.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(139, 0, 0, 0.25);
+}
+
+.seg-btn .seg-icon {
+  font-size: 0.85rem;
+}
+
+/* Guardrails Switch Wrap */
+.switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 28px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #cbd5e1;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .slider {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+}
+
+.toggle-switch input:focus + .slider {
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
+}
+
+.toggle-switch input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.switch-status-text {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  min-width: 28px;
+  transition: color 0.2s ease;
+}
+
+.switch-status-text.active {
+  color: #15803d;
+}
+
+.switch-status-text.inactive {
+  color: #d97706;
 }
 
 .main-layout {
@@ -290,6 +425,58 @@ body {
   border: 1px solid #bbf7d0;
 }
 
+.guardrail-badge.bypassed {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* =========================================
+   Response Source Bar (LLM & Guardrail Status)
+   ========================================= */
+.msg-source-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  line-height: 1.3;
+}
+
+.source-pill.llm-cloud {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.source-pill.llm-local {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.source-pill.guard-active {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.source-pill.guard-off {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
 /* =========================================
    LangGraph Agent Trace Card
    ========================================= */
@@ -333,3 +520,37 @@ body {
   font-weight: 600;
 }
 
+.eval-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #0f172a;
+  color: #38bdf8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  transition: all 0.2s ease;
+}
+
+.eval-nav-btn:hover {
+  background: #1e293b;
+  color: #7dd3fc;
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+.eval-nav-btn.phoenix-btn {
+  background: #1e1136;
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.35);
+}
+
+.eval-nav-btn.phoenix-btn:hover {
+  background: #2d1854;
+  color: #e9d5ff;
+  border-color: #c084fc;
+  transform: translateY(-1px);
+}

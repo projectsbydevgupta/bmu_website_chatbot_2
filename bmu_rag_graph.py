@@ -41,8 +41,8 @@ RETRIEVAL_SERVICE_URL = os.getenv("RETRIEVAL_SERVICE_URL", "http://127.0.0.1:800
 CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
 CHROMA_TENANT = os.getenv("CHROMA_TENANT")
 CHROMA_DATABASE = os.getenv("CHROMA_DATABASE")
-COLLECTION_NAME = "bmu_summaries"
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "bmu_bge_knowledge")
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-large-en-v1.5")
 
 # Agent API Keys & Models
 GLOBAL_GROQ_KEY = os.getenv("GROQ_API_KEY", "")
@@ -80,6 +80,23 @@ def get_chroma_and_embedder():
     return _chroma_collection, _embedding_model
 
 
+# Local LLM Settings (Ollama / OpenAI-compatible endpoint)
+LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://localhost:11434/v1")
+LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.2:3b")
+LOCAL_LLM_API_KEY = os.getenv("LOCAL_LLM_API_KEY", "ollama")
+
+_local_llm_client = None
+
+
+def get_local_llm_client() -> Tuple[Any, str]:
+    global _local_llm_client
+    if _local_llm_client is None:
+        from openai import OpenAI
+
+        _local_llm_client = OpenAI(base_url=LOCAL_LLM_URL, api_key=LOCAL_LLM_API_KEY)
+    return _local_llm_client, LOCAL_LLM_MODEL
+
+
 def get_groq_client(agent_name: str) -> Tuple[Groq, str]:
     if agent_name == "query":
         return Groq(api_key=GROQ_KEY_QUERY), GROQ_MODEL_QUERY
@@ -88,6 +105,16 @@ def get_groq_client(agent_name: str) -> Tuple[Groq, str]:
     elif agent_name == "synthesis":
         return Groq(api_key=GROQ_KEY_SYNTHESIS), GROQ_MODEL_SYNTHESIS
     return Groq(api_key=GLOBAL_GROQ_KEY), "openai/gpt-oss-120b"
+
+
+def get_llm_client(agent_name: str, provider: str = "groq") -> Tuple[Any, str]:
+    if (provider or "").lower() == "local":
+        try:
+            return get_local_llm_client()
+        except Exception as exc:
+            print(f"[Local LLM Warning]: {exc}. Falling back to Groq client.")
+            return get_groq_client(agent_name)
+    return get_groq_client(agent_name)
 
 
 # =====================================================================
@@ -110,6 +137,7 @@ class AgentTraceItem(TypedDict):
 
 class BMURAGState(TypedDict):
     raw_query: str
+    llm_provider: Optional[str]  # "groq" | "local"
 
     # Agent 1 outputs
     optimized_query: str
@@ -177,8 +205,9 @@ def query_specialist_node(state: BMURAGState) -> Dict[str, Any]:
     """
     start_t = time.perf_counter()
     raw_query = state.get("raw_query", "")
+    provider = (state.get("llm_provider") or "groq").lower()
 
-    client, model_name = get_groq_client("query")
+    client, model_name = get_llm_client("query", provider=provider)
 
     prompt = f"""You are the BMU Academic Query Specialist.
 Analyze the user's inquiry regarding BML Munjal University (BMU) and transform it into an optimal search representation.
@@ -221,6 +250,27 @@ Respond strictly with a valid JSON object in this format:
     except Exception as exc:
         print(f"[Agent 1 Exception]: {type(exc).__name__}: {exc}")
 
+    # Heuristic fallback if the model returns an unknown intent.
+    if intent not in {"admissions", "courses", "fees", "hostels", "placements", "faculty", "campus", "general"}:
+        intent = "general"
+
+    # Short menu queries need authoritative BMU vocabulary to avoid generic
+    # articles outranking the relevant university records.
+    intent_expansions = {
+        "admissions": "BML Munjal University BMU admission application eligibility entrance exams",
+        "courses": "BML Munjal University BMU degree programmes academic programs schools courses offered",
+        "fees": "BML Munjal University BMU tuition fee structure scholarships costs",
+        "hostels": "BML Munjal University BMU hostel accommodation room fees mess facilities",
+        "placements": "BML Munjal University BMU placements recruiters internships salary packages career services",
+        "faculty": "BMU faculty recruitment distinguished scholars professors faculty profiles academic qualifications research school dean",
+        "campus": "BML Munjal University BMU campus facilities student life library sports clubs accommodation",
+    }
+    if intent in intent_expansions:
+        if intent == "faculty" and len(re.findall(r"\w+", raw_query)) <= 3:
+            opt_query = intent_expansions[intent]
+        else:
+            opt_query = f"{opt_query} {intent_expansions[intent]}"
+
     # Heuristic fallback if LLM response was empty or missing required fields
     if not keywords:
         stopwords = {"what", "are", "the", "and", "for", "with", "from", "at", "is", "in", "of", "to", "how", "can", "does", "which"}
@@ -233,14 +283,45 @@ Respond strictly with a valid JSON object in this format:
             intent = "fees"
         elif any(k in q_lower for k in ["eligibility", "admission", "criteria", "apply"]):
             intent = "admissions"
+        elif any(k in q_lower for k in ["faculty", "professor", "dean", "research", "profile"]) or q_lower.startswith("who is "):
+            intent = "faculty"
+        elif any(k in q_lower for k in ["hostel", "accommodation", "mess"]):
+            intent = "hostels"
+        elif any(k in q_lower for k in ["placement", "recruiter", "salary", "internship"]):
+            intent = "placements"
+        elif any(k in q_lower for k in ["campus", "library", "sports", "club"]):
+            intent = "campus"
         elif any(k in q_lower for k in ["b.tech", "cse", "mba", "course", "program"]):
             intent = "courses"
 
+        # Broad course questions need BMU-specific vocabulary to reach the curated
+        # FAQ/program records instead of generic course articles.
+        if intent == "courses":
+            opt_query = (
+                f"{opt_query} BML Munjal University BMU degree programmes "
+                "academic programs schools courses offered"
+            )
+
+    if intent in intent_expansions and not opt_query.endswith(intent_expansions[intent]):
+        if intent == "faculty" and len(re.findall(r"\w+", raw_query)) <= 3:
+            if raw_query.lower().startswith("who is "):
+                opt_query = f"{raw_query} BMU faculty profile"
+            else:
+                opt_query = intent_expansions[intent]
+        else:
+            opt_query = f"{opt_query} {intent_expansions[intent]}"
+
+    if raw_query.lower().startswith("who is "):
+        intent = "faculty"
+        opt_query = f"{raw_query} BMU faculty profile"
+
     latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
+    provider_tag = "Local Ollama" if provider == "local" else "Groq Cloud"
     trace_item: AgentTraceItem = {
-        "agent": "Agent 1 (QuerySpecialist)",
+        "agent": f"Agent 1 (QuerySpecialist) [{provider_tag}]",
         "latency_ms": latency_ms,
         "details": {
+            "provider": provider,
             "model": model_name,
             "optimized_query": opt_query,
             "keywords": keywords,
@@ -298,7 +379,8 @@ def retrieval_tool_node(state: BMURAGState) -> Dict[str, Any]:
     if not ranked:
         try:
             collection, embedder = get_chroma_and_embedder()
-            query_emb = embedder.encode([opt_query]).tolist()
+            q_text = f"Represent this sentence for searching relevant passages: {opt_query}"
+            query_emb = embedder.encode([q_text], normalize_embeddings=True).tolist()
             results = collection.query(query_embeddings=query_emb, n_results=8)
             documents = results.get("documents", [[]])[0]
             metadatas = results.get("metadatas", [[]])[0]
@@ -331,15 +413,16 @@ def retrieval_tool_node(state: BMURAGState) -> Dict[str, Any]:
             content_text = ""
             if url:
                 try:
-                    downloaded = trafilatura.fetch_url(url)
-                    if downloaded:
-                        extracted = trafilatura.extract(downloaded)
+                    # Fast 3.0s timeout prevents blocking when BMU live links are slow or unreachable
+                    resp_web = requests.get(url, timeout=3.0)
+                    if resp_web.status_code == 200 and resp_web.text:
+                        extracted = trafilatura.extract(resp_web.text)
                         if extracted and len(extracted.strip()) > 100:
                             content_text = extracted[:3500]
                 except Exception:
                     content_text = ""
 
-            # Fallback to Chroma summary if web scrape fails
+            # Instant fallback to high-quality ChromaDB summary
             if not content_text:
                 content_text = item["summary"]
 
@@ -424,8 +507,9 @@ def context_auditor_node(state: BMURAGState) -> Dict[str, Any]:
     content = candidate["content"]
     source_name = candidate["source"]
     is_last_candidate = (idx >= len(candidates) - 1)
+    provider = (state.get("llm_provider") or "groq").lower()
 
-    client, model_name = get_groq_client("context")
+    client, model_name = get_llm_client("context", provider=provider)
 
     prompt = f"""You are the BMU Context Relevance Auditor.
 Assess if the provided Context contains sufficient factual information to answer the Student Question.
@@ -497,10 +581,12 @@ Respond strictly with valid JSON:
             reason += " (Exhausted all candidate sources)."
 
     latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
+    provider_tag = "Local Ollama" if provider == "local" else "Groq Cloud"
     trace_item: AgentTraceItem = {
-        "agent": f"Agent 2 (ContextAuditor - Candidate #{idx+1})",
+        "agent": f"Agent 2 (ContextAuditor - Candidate #{idx+1}) [{provider_tag}]",
         "latency_ms": latency_ms,
         "details": {
+            "provider": provider,
             "model": model_name,
             "candidate_source": source_name,
             "decision": decision,
@@ -578,8 +664,9 @@ def response_synthesizer_node(state: BMURAGState) -> Dict[str, Any]:
     start_t = time.perf_counter()
     raw_query = state.get("raw_query", "")
     vetted_context = state.get("vetted_context", "")
+    provider = (state.get("llm_provider") or "groq").lower()
 
-    client, model_name = get_groq_client("synthesis")
+    client, model_name = get_llm_client("synthesis", provider=provider)
 
     prompt = f"""You are the official BMU Academic Assistant for BML Munjal University.
 
@@ -597,28 +684,39 @@ Question:
 {raw_query}
 """
 
-    try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are the official BMU Academic Assistant. Answer strictly from context.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            max_tokens=800,
-        )
-        answer = response.choices[0].message.content or "Not found in context"
-    except Exception as exc:
-        answer = f"Unable to generate response due to service error: {exc}"
+    answer = ""
+    last_error = None
+    for _ in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are the official BMU Academic Assistant. Answer strictly from context.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                max_tokens=800,
+            )
+            answer = response.choices[0].message.content or "Not found in context"
+            break
+        except Exception as exc:
+            last_error = exc
+
+    if not answer:
+        # Preserve a grounded answer when the external synthesizer is temporarily unavailable.
+        answer = "Based on the official BMU record:\n\n" + vetted_context[:3000]
+        print(f"[Agent 3 Exception]: {type(last_error).__name__}: {last_error}. Used grounded context fallback.")
 
     latency_ms = round((time.perf_counter() - start_t) * 1000, 2)
+    provider_tag = "Local Ollama" if provider == "local" else "Groq Cloud"
     trace_item: AgentTraceItem = {
-        "agent": "Agent 3 (ResponseSynthesizer)",
+        "agent": f"Agent 3 (ResponseSynthesizer) [{provider_tag}]",
         "latency_ms": latency_ms,
         "details": {
+            "provider": provider,
             "model": model_name,
             "answer_length": len(answer),
         },

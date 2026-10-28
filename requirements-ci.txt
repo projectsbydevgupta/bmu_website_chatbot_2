@@ -1,0 +1,14 @@
+# CI/CD Lightweight Test Requirements
+# Optimized for fast caching and minimal CI runner installation time (< 60s)
+sentence-transformers>=2.3.0
+torch>=2.0.0
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+chromadb>=0.4.22
+requests>=2.31.0
+httpx>=0.26.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+

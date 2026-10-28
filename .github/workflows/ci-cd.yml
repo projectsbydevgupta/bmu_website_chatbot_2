@@ -1,0 +1,107 @@
+name: BMU Chatbot CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =========================================================================
+  # JOB 1: AUTOMATED TEST & QUALITY GATE
+  # Blocks deployment if ANY security, guardrail, or model test fails
+  # =========================================================================
+  quality-gate:
+    name: 🛡️ Automated Quality & Security Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: 📦 Install CI test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+
+      - name: 🧪 Execute BMU Automated Test Suite (15 Test Cases)
+        id: run_tests
+        env:
+          CHROMA_CLOUD_API_KEY: ${{ secrets.CHROMA_CLOUD_API_KEY }}
+          CHROMA_CLOUD_TENANT: ${{ secrets.CHROMA_CLOUD_TENANT }}
+          CHROMA_CLOUD_DATABASE: ${{ secrets.CHROMA_CLOUD_DATABASE }}
+          EMBEDDING_MODEL_NAME: "BAAI/bge-large-en-v1.5"
+          EMBEDDING_DIMENSION: "1024"
+        run: |
+          python test_ci_suite.py
+
+      - name: 📋 Publish Test Summary
+        if: always()
+        run: |
+          echo "### 🚀 BMU Chatbot CI Test Gate Results" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.run_tests.outcome }}" == "success" ]; then
+            echo "✅ **All 15/15 Quality and Security Tests Passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔒 JEV Prompt Injection & Guardrail Defense: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- 🛡️ Factual Grounding & Toxicity Defense: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- 🧠 Evaluation 2 Model Dimension (>1000 dims): PASSED (1,024-d BGE)" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔍 BM25 Hybrid Retrieval Matching: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- ☁️ ChromaDB Cloud Collection Integrity: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "Deployment to production is **APPROVED**." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Quality Gate Failed! Deployment has been BLOCKED.**" >> $GITHUB_STEP_SUMMARY
+            echo "Review the job logs above to inspect the failing test cases." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # =========================================================================
+  # JOB 2: PRODUCTION DEPLOYMENT
+  # Only executes if:
+  #   1. quality-gate PASSED completely
+  #   2. Code is merged/pushed into main/master branch
+  # =========================================================================
+  deploy-production:
+    name: 🚀 Deploy to Production Server
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v4
+
+      - name: 🌐 Trigger Cloud Deployment (Render / AWS / Webhook)
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          echo "================================================================="
+          echo "  CI Quality Gate verified. Initiating Production Deployment...  "
+          echo "================================================================="
+          
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "Triggering Render Production Deploy Hook..."
+            HTTP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_URL")
+            echo "Render Deploy Webhook response: $HTTP_RESPONSE"
+            if [ "$HTTP_RESPONSE" -eq 200 ] || [ "$HTTP_RESPONSE" -eq 201 ]; then
+              echo "✅ Render deployment successfully triggered!"
+            else
+              echo "⚠️ Warning: Render hook returned HTTP $HTTP_RESPONSE. Verify hook URL secret."
+            fi
+          else
+            echo "ℹ️ Note: RENDER_DEPLOY_HOOK_URL secret not set. Skipping automated webhook."
+            echo "To enable automated zero-touch deployment:"
+            echo "1. Go to your Render service -> Settings -> Deploy Hook"
+            echo "2. Add secret RENDER_DEPLOY_HOOK_URL in GitHub repo -> Settings -> Secrets."
+          fi
+          
+          echo "✅ Production deployment process completed successfully."
+

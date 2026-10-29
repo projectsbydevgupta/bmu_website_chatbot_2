@@ -13,7 +13,7 @@ groq
 typesafe-sdk>=0.7.0
 langgraph>=1.2.0
 langchain-core>=1.6.0
-arize-phoenix>=20.21.0
-arize-phoenix-otel>=0.17.2
+arize-phoenix>=20.0.0
+arize-phoenix-otel>=0.10.0
 openinference-instrumentation-groq>=0.1.33
 openinference-instrumentation-langchain>=0.1.79

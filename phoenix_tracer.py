@@ -32,6 +32,16 @@ def init_phoenix_tracing(
         return True
 
     # Check config
+    if os.getenv("CI") == "true" or os.getenv("PHOENIX_DISABLED") == "true":
+        logger.info("[Phoenix Tracing] Running in CI mode. Active network trace export disabled.")
+        try:
+            from opentelemetry import trace
+            _tracer = trace.get_tracer("bmu_rag_chatbot")
+        except Exception:
+            _tracer = None
+        _is_initialized = True
+        return True
+
     proj = project_name or os.getenv("PHOENIX_PROJECT") or os.getenv("PHOENIX_PROJECT_NAME", "bmu-website-chatbot")
     ep = endpoint or os.getenv("PHOENIX_COLLECTOR_ENDPOINT") or os.getenv("PHOENIX_ENDPOINT", "http://localhost:6006")
     if not ep.endswith("/v1/traces"):

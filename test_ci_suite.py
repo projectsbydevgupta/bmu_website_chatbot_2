@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 # Ensure utf-8 output
 sys.stdout.reconfigure(encoding="utf-8")
+os.environ.setdefault("CI", "true")
 
 # Load environment
 ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -201,7 +202,7 @@ def run_ci_test_suite() -> bool:
             if groq_key:
                 try:
                     payload = {
-                        "model": "openai/gpt-oss-20b",
+                        "model": "llama-3.3-70b-versatile",
                         "messages": [
                             {
                                 "role": "system",
@@ -230,12 +231,30 @@ def run_ci_test_suite() -> bool:
                 except Exception:
                     pass
 
-            # Robust Local Semantic Judge Fallback
+            # Robust Local Semantic Judge Fallback (Entity & Numerical Grounding)
+            import re
             from evaluate_metrics import score_faithfulness, score_relevance
             faith = score_faithfulness(answer, context)
             rel = score_relevance(query, answer)
-            is_faithful = faith >= 2.5
-            return {"score": round((faith + rel) / 2, 1), "faithful": is_faithful, "reason": "Local semantic judge"}
+
+            ans_nums = set(re.findall(r"\b\d{2,4}\b", answer))
+            ctx_nums = set(re.findall(r"\b\d{2,4}\b", context))
+            num_contradiction = bool(ans_nums - ctx_nums)
+
+            ans_entities = set(re.findall(r"\b[A-Z][a-z]+\b", answer)) - {"BML", "Munjal", "University", "When", "Who"}
+            ctx_entities = set(re.findall(r"\b[A-Z][a-z]+\b", context)) - {"BML", "Munjal", "University"}
+            entity_hallucination = bool(ans_entities - ctx_entities)
+
+            if num_contradiction or entity_hallucination:
+                is_faithful = False
+                score = 1.0
+                reason = "Detected ungrounded entities or contradictory numbers not in context"
+            else:
+                is_faithful = faith >= 2.5
+                score = round((faith + rel) / 2, 1)
+                reason = "Local semantic judge verified factual grounding"
+
+            return {"score": score, "faithful": is_faithful, "reason": reason}
 
         # Test 1: Grounded Institutional Answer MUST pass judge
         q1 = "When was BML Munjal University established and by whom?"

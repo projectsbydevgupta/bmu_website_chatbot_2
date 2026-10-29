@@ -10,7 +10,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=2.1" />
+    <link rel="stylesheet" href="./styles.css?v=3.0" />
   </head>
   <body>
     <div class="page-bg"></div>
@@ -64,10 +64,10 @@
           </div>
         </div>
 
-        <a href="evaluation.html" class="eval-nav-btn" title="Open 100-Question Model Evaluation Observatory">
+        <a href="/dashboard/evaluation.html" class="eval-nav-btn" title="Open 100-Question Model Evaluation Observatory">
           📊 Benchmark Observatory
         </a>
-        <a href="http://localhost:6006" target="_blank" class="eval-nav-btn phoenix-btn" title="Open Arize Phoenix Tracing & Observability UI">
+        <a href="#" onclick="window.open(window.location.protocol + '//' + (window.location.hostname || 'localhost') + ':6006', '_blank'); return false;" class="eval-nav-btn phoenix-btn" title="Open Arize Phoenix Tracing & Observability UI">
           🔭 Arize Phoenix
         </a>
       </div>
@@ -97,6 +97,6 @@
       </section>
     </main>
 
-    <script src="./app.js?v=2.1"></script>
+    <script src="./app.js?v=3.0"></script>
   </body>
 </html>

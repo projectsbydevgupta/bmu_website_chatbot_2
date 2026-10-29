@@ -170,7 +170,7 @@ def run_ci_test_suite() -> bool:
         assert_test("ChromaDB Cloud Verification Suite", False, str(exc))
 
     # -------------------------------------------------------------
-    print("\n[Suite 6/6] Phoenix Observability & Keep-Alive Health Gate...")
+    print("\n[Suite 6/7] Phoenix Observability & Keep-Alive Health Gate...")
     try:
         import phoenix_tracer
         tracer = phoenix_tracer.get_tracer()
@@ -187,6 +187,70 @@ def run_ci_test_suite() -> bool:
         assert_test("Health check payload reports {'status': 'ok'}", res.json().get("status") == "ok")
     except Exception as exc:
         assert_test("Keep-Alive Health Endpoint", False, str(exc))
+
+    # -------------------------------------------------------------
+    # 7. LLM-as-a-Judge Automated Quality Gate
+    # -------------------------------------------------------------
+    print("\n[Suite 7/7] LLM-as-a-Judge RAG Quality Gate...")
+    try:
+        import json
+        import requests
+
+        def judge_eval(query: str, context: str, answer: str) -> dict:
+            groq_key = os.getenv("GROQ_API_KEY")
+            if groq_key:
+                try:
+                    payload = {
+                        "model": "openai/gpt-oss-20b",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": (
+                                    "You are an impartial AI evaluation judge. Evaluate whether the Answer is factually "
+                                    "faithful to the Context and relevant to the Question. "
+                                    "Return JSON ONLY with keys: score (int 1-5), faithful (bool), reason (str)."
+                                ),
+                            },
+                            {
+                                "role": "user",
+                                "content": f"Question: {query}\nContext: {context}\nAnswer: {answer}",
+                            },
+                        ],
+                        "response_format": {"type": "json_object"},
+                    }
+                    r = requests.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                        json=payload,
+                        timeout=12,
+                    )
+                    if r.status_code == 200:
+                        content = r.json()["choices"][0]["message"]["content"]
+                        return json.loads(content)
+                except Exception:
+                    pass
+
+            # Robust Local Semantic Judge Fallback
+            from evaluate_metrics import score_faithfulness, score_relevance
+            faith = score_faithfulness(answer, context)
+            rel = score_relevance(query, answer)
+            is_faithful = faith >= 2.5
+            return {"score": round((faith + rel) / 2, 1), "faithful": is_faithful, "reason": "Local semantic judge"}
+
+        # Test 1: Grounded Institutional Answer MUST pass judge
+        q1 = "When was BML Munjal University established and by whom?"
+        ctx1 = "BML Munjal University was founded in 2014 by the Hero Group."
+        ans1 = "BML Munjal University was established in 2014 by the Hero Group."
+        j1 = judge_eval(q1, ctx1, ans1)
+        assert_test("LLM Judge confirms factual grounding of legitimate RAG response", j1.get("faithful") is True and j1.get("score", 0) >= 3, str(j1))
+
+        # Test 2: Hallucinated / Contradictory Answer MUST be caught and rejected by judge
+        ans2_hallucinated = "BML Munjal University was founded in 1950 by the Tata Group."
+        j2 = judge_eval(q1, ctx1, ans2_hallucinated)
+        assert_test("LLM Judge detects and rejects hallucinated answer", j2.get("faithful") is False or j2.get("score", 5) <= 2, str(j2))
+
+    except Exception as exc:
+        assert_test("LLM-as-a-Judge Evaluation Suite", False, str(exc))
 
     # -------------------------------------------------------------
     # Final Result

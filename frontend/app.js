@@ -1,4 +1,5 @@
-const API_BASE_URL = window.location.origin;
+// Dynamically resolve API URL: uses relative '/ask' when served from backend, or current origin
+const API_BASE_URL = window.location.origin.startsWith("http") ? "" : "http://127.0.0.1:8000";
 
 // Auto-point Arize Phoenix button to current server host on port 6006
 document.addEventListener("DOMContentLoaded", () => {

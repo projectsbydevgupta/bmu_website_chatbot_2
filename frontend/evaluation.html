@@ -11,14 +11,14 @@
       rel="stylesheet"
     />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <link rel="stylesheet" href="./evaluation.css?v=1.0" />
+    <link rel="stylesheet" href="./evaluation.css?v=3.0" />
   </head>
   <body>
     <div class="observatory-grid-bg"></div>
 
     <header class="topbar">
       <div class="brand-group">
-        <a href="index.html" class="back-link" title="Return to Chat Assistant">← Chatbot</a>
+        <a href="/dashboard/" class="back-link" title="Return to Chat Assistant">← Chatbot</a>
         <div class="brand-badge">BMU-OBS</div>
         <div class="brand-titles">
           <h1>BMU Benchmark Observatory</h1>
@@ -38,7 +38,7 @@
           </div>
         </div>
 
-        <a href="http://localhost:6006" target="_blank" class="btn btn-secondary" style="border-color: rgba(168, 85, 247, 0.4); color: #c084fc; text-decoration: none;" title="Open Arize Phoenix Tracing & LLM Observability UI">
+        <a href="#" onclick="window.open(window.location.protocol + '//' + (window.location.hostname || 'localhost') + ':6006', '_blank'); return false;" class="btn btn-secondary" style="border-color: rgba(168, 85, 247, 0.4); color: #c084fc; text-decoration: none;" title="Open Arize Phoenix Tracing & LLM Observability UI">
           <span class="btn-icon">🔭</span> Phoenix Traces
         </a>
         <button id="exportCsvBtn" class="btn btn-secondary" title="Export all 100 question evaluations as CSV">
@@ -309,6 +309,6 @@
       </div>
     </div>
 
-    <script src="./evaluation.js?v=1.0"></script>
+    <script src="./evaluation.js?v=3.0"></script>
   </body>
 </html>

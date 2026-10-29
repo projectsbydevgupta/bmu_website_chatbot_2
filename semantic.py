@@ -419,6 +419,16 @@ def root_redirect():
     return RedirectResponse(url="/dashboard/")
 
 
+@app.get("/dashboard", include_in_schema=False)
+def dashboard_redirect_slash():
+    return RedirectResponse(url="/dashboard/")
+
+
+@app.get("/evaluation.html", include_in_schema=False)
+def eval_redirect_root():
+    return RedirectResponse(url="/dashboard/evaluation.html")
+
+
 if __name__ == "__main__":
     import uvicorn
 

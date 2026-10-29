@@ -101,10 +101,10 @@ def main():
     processes.append(semantic_proc)
 
     print("\n" + "=" * 65)
-    print("  ✅ All BMU Chatbot services are LIVE and connected!")
-    print(f"  👉 Chatbot & Evaluation Dashboard: http://localhost:{port}")
-    print(f"  👉 BGE 1,024-d Microservice:       http://localhost:8001")
-    print(f"  👉 Arize Phoenix Observability:    http://localhost:6006")
+    print("  [OK] All BMU Chatbot services are LIVE and connected!")
+    print(f"  -> Chatbot & Evaluation Dashboard: http://localhost:{port}")
+    print(f"  -> BGE 1,024-d Microservice:       http://localhost:8001")
+    print(f"  -> Arize Phoenix Observability:    http://localhost:6006")
     print("=" * 65 + "\n")
 
     # Monitor processes

@@ -1,7 +1,6 @@
 # CI/CD Test Requirements
 # Optimized for fast caching and complete test suite coverage
 sentence-transformers>=2.3.0
-torch>=2.0.0
 fastapi>=0.109.0
 uvicorn>=0.27.0
 python-dotenv>=1.0.0

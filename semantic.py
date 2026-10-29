@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+import requests
 
 from jev_guardrails import jev_guardrail
 from bmu_rag_graph import bmu_rag_app, BMURAGState
@@ -301,6 +302,27 @@ def _build_answer(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/phoenix-status")
+def phoenix_status() -> dict[str, Any]:
+    """Diagnostic check to determine if Arize Phoenix server is responding on port 6006."""
+    try:
+        r = requests.get("http://127.0.0.1:6006/", timeout=1.5)
+        return {
+            "status": "online",
+            "port": 6006,
+            "http_status": r.status_code,
+            "message": "Arize Phoenix is actively running on localhost:6006.",
+            "note": "If viewing from browser on AWS EC2, ensure Port 6006 is allowed in your EC2 Security Group Inbound Rules.",
+        }
+    except Exception as exc:
+        return {
+            "status": "offline",
+            "port": 6006,
+            "error": str(exc),
+            "message": "Arize Phoenix is currently not responding on localhost:6006.",
+        }
 
 
 @app.get("/agents/status")

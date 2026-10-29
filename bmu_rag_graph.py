@@ -358,46 +358,37 @@ def retrieval_tool_node(state: BMURAGState) -> Dict[str, Any]:
     retrieval_mode = "microservice"
     retrieval_warning = None
 
-    # 1. Primary path: Call Retrieval Microservice over HTTP
-    try:
-        resp = requests.post(
-            f"{RETRIEVAL_SERVICE_URL}/retrieve",
-            json={"query": opt_query, "top_k": 8},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            ranked = data.get("results", [])
-        else:
-            retrieval_warning = f"Microservice HTTP {resp.status_code}: {resp.text}"
-            retrieval_mode = "in_process_fallback"
-    except Exception as exc:
-        retrieval_warning = f"Microservice connection failed: {exc}"
-        retrieval_mode = "in_process_fallback"
+    # 1. Primary path: Call Retrieval Microservice over HTTP with resilient timeout & retry
+    for attempt in range(2):
+        try:
+            resp = requests.post(
+                f"{RETRIEVAL_SERVICE_URL}/retrieve",
+                json={"query": opt_query, "top_k": 8},
+                timeout=45,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                ranked = data.get("results", [])
+                if ranked:
+                    break
+            else:
+                retrieval_warning = f"Microservice HTTP {resp.status_code}: {resp.text}"
+        except Exception as exc:
+            retrieval_warning = f"Microservice connection attempt {attempt + 1}: {exc}"
+            time.sleep(1.5)
 
-    # 2. Resilient fallback: Query local ChromaDB if microservice failed
+    # 2. Resilient fallback: If microservice is initializing, wait briefly and retry once more
     if not ranked:
         try:
-            collection, embedder = get_chroma_and_embedder()
-            q_text = f"Represent this sentence for searching relevant passages: {opt_query}"
-            query_emb = embedder.encode([q_text], normalize_embeddings=True).tolist()
-            results = collection.query(query_embeddings=query_emb, n_results=8)
-            documents = results.get("documents", [[]])[0]
-            metadatas = results.get("metadatas", [[]])[0]
-            distances = results.get("distances", [[]])[0]
-
-            for doc, meta, dist in zip(documents, metadatas, distances):
-                sem_sim = max(0.0, 1.0 - dist)
-                kw_sc = _keyword_score(opt_query, doc)
-                final_sc = (0.68 * sem_sim) + (0.32 * kw_sc)
-                ranked.append({
-                    "summary": doc,
-                    "url": meta.get("url", ""),
-                    "score": float(final_sc),
-                })
-            ranked.sort(key=lambda x: x["score"], reverse=True)
+            resp = requests.post(
+                f"{RETRIEVAL_SERVICE_URL}/retrieve",
+                json={"query": opt_query, "top_k": 8},
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                ranked = resp.json().get("results", [])
         except Exception as fb_exc:
-            retrieval_warning = f"{retrieval_warning}; Fallback also failed: {fb_exc}"
+            retrieval_warning = f"{retrieval_warning}; Fallback notice: {fb_exc}"
 
     candidates: List[CandidateContext] = []
     top_results: List[Dict[str, Any]] = []

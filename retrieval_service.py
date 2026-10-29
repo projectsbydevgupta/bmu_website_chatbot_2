@@ -13,6 +13,12 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
+# Optimize PyTorch and OpenMP thread concurrency for low-memory environments (e.g. AWS EC2 t2/t3)
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import chromadb
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status
@@ -93,7 +99,16 @@ def get_bge_collection():
 def get_bge_embedder():
     global _bge_embedder
     if _bge_embedder is None:
+        try:
+            import torch
+            torch.set_num_threads(1)
+            if hasattr(torch, "set_grad_enabled"):
+                torch.set_grad_enabled(False)
+        except Exception:
+            pass
         _bge_embedder = SentenceTransformer(BGE_MODEL_NAME)
+        if hasattr(_bge_embedder, "eval"):
+            _bge_embedder.eval()
     return _bge_embedder
 
 
@@ -271,13 +286,31 @@ def retrieve(req: RetrieveRequest) -> RetrieveResponse:
             # =========================================================
             # BGE 1,024-dim Engine (BAAI/bge-large-en-v1.5, bmu_bge_knowledge)
             # =========================================================
-            col = get_bge_collection()
-            embedder = get_bge_embedder()
-            # BGE retrieval prompt instruction for highest ranking quality
-            q_text = f"Represent this sentence for searching relevant passages: {clean_query}"
-            query_emb = embedder.encode([q_text], normalize_embeddings=True).tolist()
-            raw_results = col.query(query_embeddings=query_emb, n_results=n_fetch)
-            active_collection = BGE_COLLECTION_NAME
+            try:
+                col = get_bge_collection()
+                embedder = get_bge_embedder()
+                # BGE retrieval prompt instruction for highest ranking quality
+                q_text = f"Represent this sentence for searching relevant passages: {clean_query}"
+                query_emb = embedder.encode([q_text], normalize_embeddings=True).tolist()
+                raw_results = col.query(query_embeddings=query_emb, n_results=n_fetch)
+                active_collection = BGE_COLLECTION_NAME
+            except Exception as bge_exc:
+                print(f"[Retrieval Microservice] Warning: BGE embedding failed ({bge_exc}). Running resilient fallback...")
+                if voyage_client.is_configured:
+                    print("[Retrieval Microservice] Fallback to Voyage AI (1,024-d)...")
+                    col = get_voyage_collection()
+                    query_emb = [voyage_client.embed_query(clean_query)]
+                    raw_results = col.query(query_embeddings=query_emb, n_results=n_fetch)
+                    active_collection = VOYAGE_COLLECTION_NAME
+                    engine = "voyage"
+                else:
+                    print("[Retrieval Microservice] Fallback to MiniLM (384-d)...")
+                    col = get_prod_collection()
+                    embedder = get_minilm_embedder()
+                    query_emb = embedder.encode([clean_query]).tolist()
+                    raw_results = col.query(query_embeddings=query_emb, n_results=n_fetch)
+                    active_collection = PROD_COLLECTION_NAME
+                    engine = "minilm"
 
             documents = raw_results.get("documents", [[]])[0]
             metadatas = raw_results.get("metadatas", [[]])[0]
@@ -296,7 +329,7 @@ def retrieve(req: RetrieveRequest) -> RetrieveResponse:
                         score=round(float(final_sc), 4),
                         semantic_sim=round(float(sem_sim), 4),
                         keyword_score=round(float(kw_sc), 4),
-                        engine="bge",
+                        engine=engine,
                     )
                 )
 

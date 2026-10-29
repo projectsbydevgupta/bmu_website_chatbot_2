@@ -10,13 +10,11 @@ import sys
 
 # Configure environment defaults
 os.environ["PYTHONUTF8"] = "1"
-if "PHOENIX_PORT" not in os.environ:
-    os.environ["PHOENIX_PORT"] = "6006"
-if "PHOENIX_HOST" not in os.environ:
-    os.environ["PHOENIX_HOST"] = "0.0.0.0"
+port = os.environ.get("PHOENIX_PORT", "6006")
+host = os.environ.get("PHOENIX_HOST", "0.0.0.0")
 
 if __name__ == "__main__":
-    print(f"Starting Arize Phoenix Server on http://{os.environ['PHOENIX_HOST']}:{os.environ['PHOENIX_PORT']}...")
+    print(f"Starting Arize Phoenix Server on http://{host}:{port}...")
     from phoenix.server.main import main
-    sys.argv = ["phoenix", "serve"]
+    sys.argv = ["phoenix", "serve", "--host", host, "--port", str(port)]
     main()

@@ -41,16 +41,18 @@ def init_phoenix_tracing(
         from phoenix.otel import register
         from opentelemetry import trace
 
-        # Register phoenix OpenTelemetry provider with auto instrumentation for Groq/LangChain
+        # Register phoenix OpenTelemetry provider with BatchSpanProcessor (batch=True)
+        # Prevents synchronous HTTP trace storms and memory exhaustion
         register(
             project_name=proj,
             endpoint=ep,
             auto_instrument=True,
+            batch=True,
             set_global_tracer_provider=True,
         )
         _tracer = trace.get_tracer("bmu_rag_chatbot")
         _is_initialized = True
-        logger.info(f"[Phoenix Tracing] Connected to {ep} (Project: {proj})")
+        logger.info(f"[Phoenix Tracing] Connected to {ep} (Project: {proj}, batch=True)")
         return True
     except Exception as e:
         logger.warning(f"[Phoenix Tracing] Initialization notice: {e}. Running without active trace export.")
@@ -63,6 +65,15 @@ def get_tracer():
     if not _is_initialized:
         init_phoenix_tracing()
     if _tracer is None:
-        from opentelemetry import trace
-        _tracer = trace.get_tracer("bmu_rag_chatbot")
+        try:
+            from opentelemetry import trace
+            _tracer = trace.get_tracer("bmu_rag_chatbot")
+        except Exception:
+            class _DummySpan:
+                def __enter__(self): return self
+                def __exit__(self, *args): pass
+                def set_attribute(self, *args, **kwargs): pass
+            class _DummyTracer:
+                def start_as_current_span(self, *args, **kwargs): return _DummySpan()
+            _tracer = _DummyTracer()
     return _tracer

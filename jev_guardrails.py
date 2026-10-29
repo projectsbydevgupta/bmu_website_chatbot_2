@@ -37,6 +37,27 @@ try:
     TYPESAFE_SDK_AVAILABLE = True
 except ImportError:
     TYPESAFE_SDK_AVAILABLE = False
+    class SystemOneResponse:
+        def __init__(self, model="mock", usage=None, answers=None):
+            self.model = model
+            self.usage = usage
+            self.answers = answers or {}
+            self.nouls = {k: v for k, v in self.answers.items() if getattr(v, "type", "") == "noul"}
+            self.choices = {k: v for k, v in self.answers.items() if getattr(v, "type", "") == "choice"}
+    class NoulAnswer:
+        def __init__(self, type="noul", noul=0.0):
+            self.type = type
+            self.noul = noul
+    class ChoiceAnswer:
+        def __init__(self, type="choice", choice="general", confidence=1.0, probabilities=None):
+            self.type = type
+            self.choice = choice
+            self.confidence = confidence
+            self.probabilities = probabilities or {}
+    class Usage:
+        def __init__(self, input_tokens=0, output_tokens=0):
+            self.input_tokens = input_tokens
+            self.output_tokens = output_tokens
 
 load_dotenv()
 TYPESAFE_API_KEY = os.getenv("TYPESAFE_API_KEY", "").strip()

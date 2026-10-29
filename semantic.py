@@ -73,6 +73,7 @@ def _generate_unconstrained_answer(query: str, provider: str = "groq") -> str:
             ],
             temperature=0.7,
             max_tokens=1000,
+            timeout=15.0,
         )
         return response.choices[0].message.content or "No response generated."
     except Exception as exc:

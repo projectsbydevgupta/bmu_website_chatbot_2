@@ -241,6 +241,7 @@ Respond strictly with a valid JSON object in this format:
             ],
             temperature=0.1,
             max_tokens=600,
+            timeout=15.0,
         )
         content = (response.choices[0].message.content or "").strip()
         parsed = _safe_json_parse(content)
@@ -401,11 +402,11 @@ def retrieval_tool_node(state: BMURAGState) -> Dict[str, Any]:
             score = item["score"]
             top_results.append({"url": url, "score": score})
 
-            content_text = ""
-            if url:
+            # Instant high-quality verified ChromaDB summary (prevents slow external network latency)
+            content_text = item.get("summary", "")
+            if not content_text and url:
                 try:
-                    # Fast 3.0s timeout prevents blocking when BMU live links are slow or unreachable
-                    resp_web = requests.get(url, timeout=3.0)
+                    resp_web = requests.get(url, timeout=2.0)
                     if resp_web.status_code == 200 and resp_web.text:
                         extracted = trafilatura.extract(resp_web.text)
                         if extracted and len(extracted.strip()) > 100:
@@ -413,16 +414,12 @@ def retrieval_tool_node(state: BMURAGState) -> Dict[str, Any]:
                 except Exception:
                     content_text = ""
 
-            # Instant fallback to high-quality ChromaDB summary
-            if not content_text:
-                content_text = item["summary"]
-
             candidates.append({
                 "source": url or f"Chroma Document #{i+1}",
                 "url": url,
                 "content": content_text,
                 "score": score,
-                "type": "scraped_page" if content_text != item["summary"] else "stored_summary",
+                "type": "stored_summary",
             })
 
         # Add Candidate 3: Synthesized multi-document Chroma summaries (top 6 documents)
@@ -535,6 +532,7 @@ Respond strictly with valid JSON:
             ],
             temperature=0.1,
             max_tokens=600,
+            timeout=15.0,
         )
         content_str = (response.choices[0].message.content or "").strip()
         parsed = _safe_json_parse(content_str)
@@ -690,6 +688,7 @@ Question:
                 ],
                 temperature=0.2,
                 max_tokens=800,
+                timeout=15.0,
             )
             answer = response.choices[0].message.content or "Not found in context"
             break

@@ -31,6 +31,13 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 PYTHON_CMD = sys.executable
 
+# Ensure immediate real-time unbuffered logging to chatbot.log
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
 service_configs: list[dict] = []
 is_shutting_down = False
 

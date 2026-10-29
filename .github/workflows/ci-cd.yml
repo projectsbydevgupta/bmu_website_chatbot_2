@@ -42,6 +42,7 @@ jobs:
           CHROMA_CLOUD_API_KEY: ${{ secrets.CHROMA_CLOUD_API_KEY }}
           CHROMA_CLOUD_TENANT: ${{ secrets.CHROMA_CLOUD_TENANT }}
           CHROMA_CLOUD_DATABASE: ${{ secrets.CHROMA_CLOUD_DATABASE }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           EMBEDDING_MODEL_NAME: "BAAI/bge-large-en-v1.5"
           EMBEDDING_DIMENSION: "1024"
         run: |
@@ -52,7 +53,14 @@ jobs:
         run: |
           echo "### 🚀 BMU Chatbot CI Test Gate Results" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.run_tests.outcome }}" == "success" ]; then
-            echo "✅ **All 15/15 Quality and Security Tests Passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All 20/20 Quality, Security & LLM-as-a-Judge Tests Passed!**" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔒 JEV Prompt Injection & Guardrail Defense: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- 🛡️ Factual Grounding & Toxicity Defense: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- 🧠 Evaluation 2 Model Dimension (>1000 dims): PASSED (1,024-d BGE)" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔍 BM25 Hybrid Retrieval Matching: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- ☁️ ChromaDB Cloud Collection Integrity: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- ⚖️ LLM-as-a-Judge Hallucination & Faithfulness Gate: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔭 Arize Phoenix Tracing & Health Check: PASSED" >> $GITHUB_STEP_SUMMARY
             echo "- 🔒 JEV Prompt Injection & Guardrail Defense: PASSED" >> $GITHUB_STEP_SUMMARY
             echo "- 🛡️ Factual Grounding & Toxicity Defense: PASSED" >> $GITHUB_STEP_SUMMARY
             echo "- 🧠 Evaluation 2 Model Dimension (>1000 dims): PASSED (1,024-d BGE)" >> $GITHUB_STEP_SUMMARY

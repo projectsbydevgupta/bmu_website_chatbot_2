@@ -152,9 +152,9 @@ def run_ci_test_suite() -> bool:
     try:
         import chromadb
 
-        api_key = os.getenv("CHROMA_API_KEY")
-        tenant = os.getenv("CHROMA_TENANT")
-        database = os.getenv("CHROMA_DATABASE")
+        api_key = os.getenv("CHROMA_API_KEY") or os.getenv("CHROMA_CLOUD_API_KEY")
+        tenant = os.getenv("CHROMA_TENANT") or os.getenv("CHROMA_CLOUD_TENANT")
+        database = os.getenv("CHROMA_DATABASE") or os.getenv("CHROMA_CLOUD_DATABASE")
         collection_name = os.getenv("CHROMA_COLLECTION_NAME", "bmu_bge_knowledge")
 
         if api_key and tenant and database:

@@ -42,6 +42,9 @@ jobs:
           CHROMA_CLOUD_API_KEY: ${{ secrets.CHROMA_CLOUD_API_KEY }}
           CHROMA_CLOUD_TENANT: ${{ secrets.CHROMA_CLOUD_TENANT }}
           CHROMA_CLOUD_DATABASE: ${{ secrets.CHROMA_CLOUD_DATABASE }}
+          CHROMA_API_KEY: ${{ secrets.CHROMA_CLOUD_API_KEY }}
+          CHROMA_TENANT: ${{ secrets.CHROMA_CLOUD_TENANT }}
+          CHROMA_DATABASE: ${{ secrets.CHROMA_CLOUD_DATABASE }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           EMBEDDING_MODEL_NAME: "BAAI/bge-large-en-v1.5"
           EMBEDDING_DIMENSION: "1024"
